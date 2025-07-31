@@ -1,6 +1,7 @@
 #![warn(clippy::all, clippy::pedantic)]
 use std::env;
 use std::fs;
+use std::path::PathBuf;
 use chrono::Utc;
 use rdev::{grab, EventType, Key, Event};
 use screenshots::Screen;
@@ -31,8 +32,11 @@ fn main() {
 
 fn callback(event: Event, path: &str) -> Option<Event> {
     if let EventType::KeyPress(Key::F12) = event.event_type {
-        let total_path = path.to_string() + "/";
+        let mut path_buf = PathBuf::from(path);
         
+        path_buf.push("");
+        let total_path = path_buf.to_str().unwrap().to_string();
+
         std::thread::spawn(move || {
             println!("F12 pressed, taking screenshot...");
             make_screen(&total_path);
@@ -53,7 +57,13 @@ fn make_screen (screens_dir :&str) {
         let image = screen.capture().unwrap();
         let current_time = Utc::now();
 
-        if let Err(e) = image.save(format!("{}-scr-{}-{}.png", screens_dir, i, current_time.to_string())) {
+        let filename = format!("scr-{}-{}.png", i, current_time.format("%d-%m-%Y_%H_%M_%S"));
+
+        let mut full_path = PathBuf::from(screens_dir);
+        full_path.push(filename);
+
+        if let Err(e) = image.save(full_path) {
+            println!("Route -> {}", screens_dir.to_string());
             eprintln!("Failed to save screenshot: {}", e);
         }
     }
@@ -65,6 +75,7 @@ fn is_dir_exists(path: &str) -> bool {
 
 fn create_screenshots_dir(path: &str) {
     if let Err(e) = fs::create_dir_all(path) {
+        println!("path: {}", path);
         eprintln!("Failed to create directory {}: {}", path, e);
         std::process::exit(1);
     } else {
